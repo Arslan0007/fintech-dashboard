@@ -1,0 +1,24 @@
+name: Financial Dashboard CI
+
+on: [push] # Trigger: Whenever code is pushed
+
+jobs:
+    test-code:
+        runs-on: ubuntu-latest # Use a GitHub server
+
+        steps:
+        - name: Check out code
+          uses: actions/checkout@v3
+
+        - name: Set up Python
+          uses: actions/setup-python@v4
+          with:
+            python-version: '3.9'
+
+        - name: Install dependencies
+          run: |
+            pip install flask
+
+        - name: Run Unit Tests
+          run: |
+            python test_app.py
