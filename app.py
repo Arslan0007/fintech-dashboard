@@ -4,123 +4,161 @@ import datetime
 
 app = Flask(__name__)
 
-# 1. The "Page" Route - Loads only ONCE
+# --- HELPER FUNCTIONS ---
+def generate_market_data(base_price, volatility):
+    price = round(random.uniform(base_price * 0.95, base_price * 1.05), 2)
+    change = round(random.uniform(-volatility, volatility), 2)
+    return price, change
+
+def get_signal(change):
+    if change > 1.2: return "STRONG BUY 🚀"
+    elif change > 0.3: return "BUY"
+    elif change < -1.2: return "STRONG SELL 📉"
+    elif change < -0.3: return "SELL"
+    else: return "HOLD ✋"
+
+def get_color(change):
+    return "#00ff00" if change >= 0 else "#ff4444"
+
+# --- ROUTES ---
+
 @app.route('/')
 def home():
     html_content = """
     <html>
         <head>
-            <title>ProTrade Terminal</title>
+            <title>ProTrade Terminal v2.0</title>
             <script>
-                // This JavaScript runs in the browser
                 function updatePrices() {
-                    fetch('/api/data') // Ask server for new numbers
+                    fetch('/api/data')
                         .then(response => response.json())
                         .then(data => {
-                            // Update Apple
-                            document.getElementById('aapl_price').innerText = '$' + data.apple_price;
-                            document.getElementById('aapl_change').innerText = data.apple_change + '%';
-                            document.getElementById('aapl_change').style.color = data.apple_color;
-                            document.getElementById('aapl_msg').innerText = data.apple_signal;
-
-                            // Update Bitcoin
-                            document.getElementById('btc_price').innerText = '$' + data.btc_price;
-                            document.getElementById('btc_change').innerText = data.btc_change + '%';
-                            document.getElementById('btc_change').style.color = data.btc_color;
-                            document.getElementById('btc_msg').innerText = data.btc_signal;
-
-                            // Update Alert
+                            updateCard('aapl', data.aapl);
+                            updateCard('tsla', data.tsla);
+                            updateCard('googl', data.googl);
+                            updateCard('btc', data.btc);
+                            updateCard('eth', data.eth);
+                            
                             document.getElementById('risk_alert').innerHTML = data.risk_alert;
                         });
                 }
-                // Run update every 2000 milliseconds (2 seconds)
+                
+                function updateCard(id, data) {
+                    document.getElementById(id + '_price').innerText = '$' + data.price;
+                    document.getElementById(id + '_change').innerText = data.change + '%';
+                    document.getElementById(id + '_change').style.color = data.color;
+                    document.getElementById(id + '_msg').innerText = data.signal;
+                }
+
                 setInterval(updatePrices, 2000);
             </script>
             <style>
-                body { font-family: 'Consolas', 'Monaco', monospace; background-color: #000000; color: #e0e0e0; margin: 0; padding: 20px; text-align: center; }
-                .container { display: flex; justify-content: center; gap: 40px; margin-top: 30px; flex-wrap: wrap; }
-                .card { background: #111; border: 1px solid #333; padding: 20px; width: 320px; border-radius: 8px; box-shadow: 0 0 15px rgba(0,255,0,0.05); }
-                h1 { color: #ffffff; letter-spacing: 2px; text-transform: uppercase; border-bottom: 1px solid #333; padding-bottom: 10px; display: inline-block; }
-                .price { font-size: 42px; font-weight: bold; margin: 15px 0; }
-                .signal-box { background: #222; border: 1px solid #444; padding: 8px; margin-top: 10px; font-size: 12px; color: #aaa; }
+                body { font-family: 'Consolas', 'Monaco', monospace; background-color: #050505; color: #e0e0e0; margin: 0; padding: 20px; text-align: center; }
                 
-                /* Animations */
+                .header { border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
+                h1 { margin: 0; letter-spacing: 3px; color: #fff; }
+                .sub-header { color: #666; font-size: 12px; margin-top: 5px; }
+
+                .container { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; max-width: 1200px; margin: 0 auto; }
+                
+                .card { background: #111; border: 1px solid #333; padding: 15px; width: 200px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); transition: transform 0.2s; }
+                .card:hover { transform: scale(1.02); border-color: #555; }
+                
+                h2 { color: #888; font-size: 14px; margin: 0 0 10px 0; }
+                .price { font-size: 28px; font-weight: bold; margin: 10px 0; }
+                .signal-box { background: #1a1a1a; border: 1px solid #333; padding: 5px; margin-top: 10px; font-size: 11px; color: #aaa; }
+                
+                .crypto-card { border-top: 3px solid #f7931a; } /* Bitcoin Orange */
+                .eth-card { border-top: 3px solid #627eea; } /* Ethereum Blue */
+                .stock-card { border-top: 3px solid #00ff00; } /* Stock Green */
+
                 .alert { background-color: #500000; color: #ff9999; border: 1px solid #ff0000; padding: 10px; font-weight: bold; animation: flash 1s infinite; margin-bottom: 20px; }
                 @keyframes flash { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
                 
-                /* Ticker - Runs forever now! */
-                .ticker-wrap { position: fixed; bottom: 40px; width: 100%; background-color: #111; border-top: 1px solid #333; border-bottom: 1px solid #333; overflow: hidden; height: 30px; line-height: 30px; }
-                .ticker { display: inline-block; white-space: nowrap; animation: ticker 20s linear infinite; color: #00ff00; font-size: 14px; }
+                .ticker-wrap { position: fixed; bottom: 30px; width: 100%; background-color: #111; border-top: 1px solid #333; height: 30px; line-height: 30px; left: 0; }
+                .ticker { display: inline-block; white-space: nowrap; animation: ticker 25s linear infinite; color: #00ff00; font-size: 14px; }
                 @keyframes ticker { 0% { transform: translate3d(100%, 0, 0); } 100% { transform: translate3d(-100%, 0, 0); } }
                 
-                .disclaimer { position: fixed; bottom: 5px; width: 100%; font-size: 10px; color: #555; text-align: center; }
+                .disclaimer { position: fixed; bottom: 5px; width: 100%; font-size: 10px; color: #444; text-align: center; left: 0; background: #000; }
             </style>
         </head>
         <body>
             <div id="risk_alert"></div>
-            <h1>🏛️ Algo-Trade Execution Engine v1.5</h1>
+            
+            <div class="header">
+                <h1>📈 ALGO-TRADER PRO</h1>
+                <div class="sub-header">INSTITUTIONAL GRADE MARKET SIMULATOR</div>
+            </div>
             
             <div class="container">
-                <div class="card">
-                    <h2>APPLE INC (AAPL)</h2>
-                    <div id="aapl_price" class="price">LOADING...</div>
+                <div class="card stock-card">
+                    <h2>APPLE (AAPL)</h2>
+                    <div id="aapl_price" class="price">...</div>
                     <div id="aapl_change">...</div>
-                    <div class="signal-box">SIGNAL: <b id="aapl_msg" style="color: white">WAITING</b></div>
+                    <div class="signal-box">SIGNAL: <b id="aapl_msg">...</b></div>
                 </div>
 
-                <div class="card">
-                    <h2>BITCOIN (BTC-USD)</h2>
-                    <div id="btc_price" class="price">LOADING...</div>
+                <div class="card stock-card">
+                    <h2>TESLA (TSLA)</h2>
+                    <div id="tsla_price" class="price">...</div>
+                    <div id="tsla_change">...</div>
+                    <div class="signal-box">SIGNAL: <b id="tsla_msg">...</b></div>
+                </div>
+
+                <div class="card stock-card">
+                    <h2>GOOGLE (GOOGL)</h2>
+                    <div id="googl_price" class="price">...</div>
+                    <div id="googl_change">...</div>
+                    <div class="signal-box">SIGNAL: <b id="googl_msg">...</b></div>
+                </div>
+
+                <div class="card crypto-card">
+                    <h2>BITCOIN (BTC)</h2>
+                    <div id="btc_price" class="price">...</div>
                     <div id="btc_change">...</div>
-                    <div class="signal-box">SIGNAL: <b id="btc_msg" style="color: white">WAITING</b></div>
+                    <div class="signal-box">SIGNAL: <b id="btc_msg">...</b></div>
+                </div>
+
+                <div class="card eth-card">
+                    <h2>ETHEREUM (ETH)</h2>
+                    <div id="eth_price" class="price">...</div>
+                    <div id="eth_change">...</div>
+                    <div class="signal-box">SIGNAL: <b id="eth_msg">...</b></div>
                 </div>
             </div>
 
             <div class="ticker-wrap">
-                <div class="ticker">📰 NEWS: FED RATE DECISION PENDING +++ BITCOIN VOLATILITY INCREASING +++ TECH SECTOR RALLY CONTINUES +++ OIL PRICES STABLE +++ SYSTEM STATUS: ONLINE</div>
+                <div class="ticker">📰 NEWS: TESLA ANNOUNCES NEW AI ROBOT +++ BITCOIN HALVING EVENT APPROACHING +++ GOOGLE EARNINGS BEAT EXPECTATIONS +++ ETHEREUM GAS FEES DROP TO RECORD LOWS</div>
             </div>
 
             <div class="disclaimer">
-                DISCLAIMER: This application is a simulation for educational purposes only. NOT financial advice.
+                MIT LICENSE | DISCLAIMER: This is a simulation for portfolio demonstration only. NOT financial advice.
             </div>
         </body>
     </html>
     """
     return html_content
 
-# 2. The "Hidden" API Route - Delivers Raw Data
 @app.route('/api/data')
 def get_data():
-    # Simulation Logic
-    apple_price = round(random.uniform(165, 175), 2)
-    apple_change = round(random.uniform(-1.5, 1.5), 2)
-    btc_price = round(random.uniform(29500, 31500), 2)
-    btc_change = round(random.uniform(-3.5, 3.5), 2)
+    # Generate data for all assets
+    aapl_p, aapl_c = generate_market_data(170, 2.0)
+    tsla_p, tsla_c = generate_market_data(240, 4.0) # Tesla is more volatile
+    googl_p, googl_c = generate_market_data(135, 1.5)
+    btc_p, btc_c = generate_market_data(30000, 5.0)
+    eth_p, eth_c = generate_market_data(1800, 4.0)
 
-    def get_signal(change):
-        if change > 1.0: return "STRONG BUY 🚀"
-        elif change > 0.2: return "BUY"
-        elif change < -1.0: return "STRONG SELL 📉"
-        elif change < -0.2: return "SELL"
-        else: return "HOLD ✋"
-
-    def get_color(change):
-        return "#00ff00" if change >= 0 else "#ff4444"
-
+    # Risk Logic
     risk_alert = ""
-    if btc_change < -2.0:
-        risk_alert = """<div class="alert">⚠️ RISK WARNING: HIGH VOLATILITY DETECTED. AUTOMATED HEDGING ACTIVE.</div>"""
+    if btc_c < -2.5 or tsla_c < -3.0:
+        risk_alert = """<div class="alert">⚠️ MARKETS FLASHING RED: HIGH VOLATILITY DETECTED.</div>"""
 
-    # Return JSON (Data only, no HTML)
     return jsonify({
-        'apple_price': apple_price,
-        'apple_change': apple_change,
-        'apple_color': get_color(apple_change),
-        'apple_signal': get_signal(apple_change),
-        'btc_price': btc_price,
-        'btc_change': btc_change,
-        'btc_color': get_color(btc_change),
-        'btc_signal': get_signal(btc_change),
+        'aapl': {'price': aapl_p, 'change': aapl_c, 'color': get_color(aapl_c), 'signal': get_signal(aapl_c)},
+        'tsla': {'price': tsla_p, 'change': tsla_c, 'color': get_color(tsla_c), 'signal': get_signal(tsla_c)},
+        'googl': {'price': googl_p, 'change': googl_c, 'color': get_color(googl_c), 'signal': get_signal(googl_c)},
+        'btc': {'price': btc_p, 'change': btc_c, 'color': get_color(btc_c), 'signal': get_signal(btc_c)},
+        'eth': {'price': eth_p, 'change': eth_c, 'color': get_color(eth_c), 'signal': get_signal(eth_c)},
         'risk_alert': risk_alert
     })
 
