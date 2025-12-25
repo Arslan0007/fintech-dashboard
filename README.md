@@ -42,7 +42,7 @@ This project implements a complete **CI/CD pipeline** to ensure code quality and
 3.  **Risk Management Engine:** Automatically detects market crashes (>2.5% drop) and triggers visual risk alerts.
 4.  **Live Ticker:** Zero-refresh streaming news ticker using CSS animations.
 
----
+---- 
 
 ### 🏃‍♂️ How to Run Locally
 
